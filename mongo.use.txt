@@ -1,0 +1,77 @@
+# To list current exists databases
+> show dbs
+
+# To create a new data base
+> use mydb
+# now db variable will contain db instance
+# NOTE: This DB will not be visible in > show dbs untill we insert a document int it
+
+# To drop databse
+> db.dropDatabase
+
+# To create a collection
+> db.createCollection("test_name", [{autoIndexID: true, size: 1231231}])
+
+# To show collection in db
+> show collections
+
+# Drop a collection
+> db.collection_name.drop()
+
+########### Insertion in mongoDB
+
+# To create a document and insert a tuple in it
+> db.movie.insert({"name":"Harry Poter"})
+# NOTE: This will insert a movie into movie's collection if collection exists else it will create this collection
+
+# To ensure index, we need to explicitly use ensureIndex on that attr
+> db.collection_name.ensureIndex({attr: 1})
+
+########## Selection in mongoDB 
+
+# To display documents from a collection
+> db.collection_name.find()
+
+# To display in pretty
+> db.collection_name.find().pretty()
+
+# To display a specific attr's value
+> db.collection_name.find({}, {attr1: 1, attr2: 0})
+# Here result will contain value of only attr1's and will not contain of attr2 
+
+# To limit the number of output result
+> db.collection_name.find().limit(5)
+
+# To skip some of the output results
+> db.collection_name.find().skip(12)
+
+# Sorting in ouput result
+> db.collection_name.find().sort({attr: 1})
+# here 1 is used for ascending order and -1 can be used to get output in descending order
+
+
+
+# WHERE in mongoDB
+> db.collection_name.find({ attr: value })
+> db.collection_name.find({ attr: {$lt: value} }) # attr > value
+> db.collection_name.find({ attr: {$gt: value} })
+> db.collection_name.find({ attr: {$ne: value} })
+
+# AND in mongoDB
+> db.collection_name.find({attr: value , attr: value, ...]})
+
+# OR in mongoDB
+> db.collection_name.find({ $or :[ {key : value}, {key : value}, ... ] })
+
+######## Updation in mongoDB
+# To update an existing document in collection  at some criteria
+> db.collection_name.update( {attr: value}, {$set: {attr: value, attr: value}}, {multi: true} )  #  multi is optional
+  
+# To repalce an existing document in collection at some criteria
+> db.collection_name.save( { "_id": value, attr: value, ...})
+# this will replace the document at _id
+
+# To remove an document in collection at some criteria
+> db.collection_name.remove({attr: value, ...}, 1) # here 1 is optional 
+
+
