@@ -40,17 +40,20 @@ class ClientThread(threading.Thread):
 		if data == "Download" :
 			self.socket.send("Ok")
 			fileName = self.socket.recv(1024)
+			print "User wants to download file "+ fileName
 			self.Download(fileName)
 
 		elif data == "Upload":
+			print "User wants to upload file."
 			# send confirmation
 			self.socket.send("Ok")
 
 			# get torrent file content
+			print "Getting torrent file from seeder..."
 			torrentFile = self.socket.recv(1024)
 			
 			# upload the file to server and do other necessary work
-			self.server.Upload(torrentFile)
+			self.Upload(torrentFile)
 
 		else:
 			print "Something went wrong"
@@ -64,7 +67,7 @@ class ClientThread(threading.Thread):
 	"""
 	def Upload(self, torrentFile):
 		# decode the torrent file
-		decod = Torrent.decode(torrentFile)
+		decod = Torrent().decode(torrentFile)
 
 		# get the file name
 		fileName = decod["info"]["name"]
@@ -73,35 +76,44 @@ class ClientThread(threading.Thread):
 		trackers = decod["announce"]
 
 		# update database of itself
-		self.server.db.insert({"fileName": fileName+".torrent"})
+		print "Updating database of torrent files"
+		self.server.db.torrents.insert({"fileName": fileName})
 
 		# inform trackers to update there database
 		trackerIP, trackerPort = trackers.split(":")
+		trackerPort = int(trackerPort)
 
-		serSoc = self.server.socket
+		print "Connecting to tracker at "+trackers
+		serSoc = Socket('172.34.12.12', 6767).TCP()
 		serSoc.connect((trackerIP, trackerPort))
+
+		print "Waiting for response from racker"
 		resp = serSoc.recv(256)
 		if resp == "Ok":
 			serSoc.send("Server")
 			resp = serSoc.recv(256)
 			if resp == "Ok":
-				data = self.ip + ":" + self.port + "||" + fileName
+				data = self.ip + ":" + str(self.port) + "||" + fileName
+				print "Sending data to tracker..."
 				serSoc.send(data)
-				resp = serSoc.revc(256)
+				resp = serSoc.recv(256)
 				if resp == "Failed":
 					self.socket.send("Failed")
 					return 
 		else:
-			self.socket.send("File upload failed!!")
+			self.socket.send("Failed")
 			return
 
 		# put file into the server 
+		print "Putting content into a torrent file..."
 		fp = open(fileName+".torrent", "wb")
 		fp.write(torrentFile)
 		fp.close()
 
 		# send confirmation to client thread
-		self.socket.send("Done")
+		print "Sending confirmation to seeder..."
+		serSoc.close()
+		self.socket.send("Ok")
 		return 
 
 	"""
@@ -109,12 +121,12 @@ class ClientThread(threading.Thread):
 	"""		
 	def Download(self, fileName):
 		# look in our data base for fileName, 
-		file = self.server.db.torrents.find({"fileName": fileName})
-
+		files = self.server.db.torrents.find({"fileName": fileName})
 		# send file if exists
-		if file.count() == 1:
-			torrentFile = open(fileName, "rb")
-			self.socket.send(torrentFile)	
+		if files.count() >= 1:
+			self.socket.send("Ok")
+			torrentFile = open(fileName+".torrent", "rb")
+			self.socket.send(torrentFile.read(1024))	
 
 		# else send file not exists error
 		else:

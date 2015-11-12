@@ -11,7 +11,9 @@ def main():
 
 	# Download a torrent file form a server
 	serverAddr = ('127.23.23.23', 6660)
-	leecher.GetTorrent(serverAddr, "test.txt")
+	# leecher.GetTorrent(serverAddr, "test.txt")
+
+	leecher.Download("test.txt.torrent")	
 
 
 

@@ -16,19 +16,13 @@ import os
 
 class Torrent():
 
-	def __init__(self, fileName=None):
-		if not fileName:
-			print "Please provide a file"
-			exit()	
-		self.fileName = fileName
-
 	''' create torrent file with given parameters '''
-	def encode(self, announce="http://localhost:80/torrent", groupIP="225.0.0.0", pieceSize=26214):
+	def encode(self, fileName, announce="127.12.234.12:7878", pieceSize=26214):
 		
 		# variable to contain number of pieces for fileName
 		piecesString = ""
 		# open file in binary mode
-		f = open(self.fileName, 'rb')
+		f = open(fileName, 'rb')
 		while True:
 			piece = f.read(pieceSize)
 			if not piece:
@@ -41,8 +35,7 @@ class Torrent():
 
 		# make dictionary for encoding
 		dbecode = {
-			'announce': announce, 
-			'groupIP': groupIP, 
+			'announce': announce,  
 			'info': {
 				'name': fileName, 
 				'piece length': pieceSize, 
@@ -54,17 +47,10 @@ class Torrent():
 		# make encoded string
 		bencodedString =  bencode.bencode(dbecode)
 		
-		# create file for this encoded torrent data
-		f = open(self.fileName+".torrent", 'wb')
-		f.write(bencodedString)
-		f.close()	
+		return bencodedString	
 
 	''' decode torrent file and return it"s content '''
-	def decode(self):
-		f = open(self.fileName, 'rb')
-		bencodeString = f.read()
-		f.close()
-		bdecode = bencode.bdecode(bencodeString)
-
+	def decode(self, bencodedString):
+		bdecode = bencode.bdecode(bencodedString)
 		# return the decoded dictionary
 		return bdecode

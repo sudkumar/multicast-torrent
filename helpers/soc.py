@@ -11,7 +11,7 @@ Basic socket implementation
 
 class Socket():
 	"""Basic Socket operations"""
-	def __init__(self, ip, port=None):
+	def __init__(self, ip=None, port=None):
 		self.ip = ip
 		self.port = port
 

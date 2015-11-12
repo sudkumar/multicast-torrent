@@ -3,9 +3,9 @@
 from tracker import Tracker
 
 def main():
-	ip = '123.12.34.12'
-	port = 5566
-	dbName = 'tracker'
+	ip = '127.12.234.12'
+	port = 7878
+	dbName = 'trackers'
 
 	tracker = Tracker(ip, port, dbName)
 

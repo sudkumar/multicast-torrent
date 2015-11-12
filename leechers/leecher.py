@@ -1,16 +1,18 @@
 #!/usr/bin/python
 
 import socket
-
+import struct
 
 if __package__ is None:
   import sys
   from os import path
   sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
   from helpers.soc import Socket
+  from helpers.torrent import Torrent
 
 else:
   from ..helpers.soc import Socket
+  from ..helpers.torrent import Torrent
 
 
 
@@ -38,6 +40,7 @@ class Leecher():
 		Connect the server
 		Get the torrent file from server
 		'''
+		print "Downloading "+ fileName
 		# Create a TCP socket
 		s = Socket(self.ip, self.port).TCP()
 
@@ -58,9 +61,9 @@ class Leecher():
 					s.send(fileName)
 					resp = s.recv(256)
 					if resp == "Ok":
-						file = s.recv(1024)
+						fileContent = s.recv(1024)
 						fp = open(fileName+".torrent", "w")
-						fb.write(fp)
+						fp.write(fileContent)
 						fp.close()
 					else:
 						print "File not exists at server"	
@@ -94,7 +97,7 @@ class Leecher():
 			resp = s.recv(256)
 			if resp == "Ok":
 				s.send(fileName)
-				resp = s.recv()
+				resp = s.recv(256)
 				if resp == "Ok":
 					resp = s.recv(1024)
 					if resp == "Failed":
@@ -116,7 +119,7 @@ class Leecher():
 	"""
 	Join the group
 	"""
-	def JoinGroup(self, groupIP, groupAddr):
+	def JoinGroup(self, groupIP, groupPort):
 		'''
 		Create a UDP socket
 		Join the group
@@ -129,14 +132,14 @@ class Leecher():
 
 
 		# Bind it to the port
-		s.socket.bind((groupIP, groupAddr))
+		s.bind((groupIP, groupPort))
 
 		# get the group to join
 		group_bin = socket.inet_pton(socket.AF_INET, groupIP)
 
 		# Join group
 		mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-		s.socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+		s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 	
 		return s
 
@@ -146,7 +149,10 @@ class Leecher():
 	"""
 	def Download(self, torrentFile):
 		# get the trackers from torrent file
-		decodedData = Torrent(torrentFile).decode()
+		fp = open(torrentFile, "rb")
+		encodedData = fp.read(1024)
+		fp.close()
+		decodedData = Torrent().decode(encodedData)
 
 		# get the tracker from dictionary
 		tracker = decodedData["announce"].split(':')
@@ -156,12 +162,12 @@ class Leecher():
 		# get the group to join
 		trackerAddr = ( tracker[0], int(tracker[1]) )
 
-		groupAddr = self.GetGroup((trackerAddr, fileName))
+		groupAddr = self.GetGroup(trackerAddr, fileName)
 		if groupAddr:	
 			groupIP, groupPort = groupAddr.split(':')
 
 			# join the group and get the socket
-			s = self.JoinGroup(groupIP, groupPort)
+			s = self.JoinGroup(str(groupIP), int(groupPort))
 
 			# Loop, printing any data we receive
 			while True:

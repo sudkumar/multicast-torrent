@@ -2,7 +2,6 @@
 
 from group import Group
 import threading
-# from ...helpers.db import DB
 
 import time
 
@@ -49,6 +48,7 @@ class ClientThread(threading.Thread):
 		# get the first message from client		
 		resp = self.socket.recv(256)
 		if resp == "Server":
+			print "Client is server. Responding to server..."
 			# client is server, server wants to update our database
 			self.socket.send("Ok")
 			# now get the seeder and file from server
@@ -57,12 +57,14 @@ class ClientThread(threading.Thread):
 
 			# update the collection of seeders
 			# send the feedback to the server
-			if self.tracker.db.seeder.insert({"seeder": seeder, "fileName": fileName}):
+			print "Updating database for seeders..."
+			if self.tracker.db.seeders.insert({"seeder": seeder, "fileName": fileName}):
 				self.socket.send("Ok")
 			else:
 				self.socket.send("Failed")	
 
 		elif resp == "Leecher":
+			print "Client is leecher. Responding to leecher..."
 			# client is leecher, leecher wants to download a file with the filename
 			self.socket.send("Ok")
 			fileName = self.socket.recv(1024)
@@ -70,12 +72,19 @@ class ClientThread(threading.Thread):
 			print timeToChat, "ms"
 			# round to 4 numbers to time
 			timeToChat = "%.4f" % timeToChat
-			file = self.tracker.db.seeder.fild({"fileName": fileName})
-			if file:
+			print "Checking for file to exists in tracker's database..."
+			file = self.tracker.db.seeders.find({"fileName": fileName})
+			if file.count() >= 1:
+				# send the confirmation to leecher
+				self.socket.send("Ok")
 				# file exists, so assign a group to the leecher 
-				seederAddr = file[0].seeder
-
+				seederAddr = file[0]["seeder"]
+				print seederAddr
+				seederIP, seederPort = seederAddr.split(":")
+				seederIP = str(seederIP)
+				seederPort = int(seederPort)
 				# check for any group in seeders list for with the same timeToChat
+				print "Assinging group address to the leecher.."
 				if seederAddr in self.tracker.groups:
 					itemLength = len(self.tracker.groups[seederAddr])
 					for i in range(itemLength):
@@ -87,12 +96,11 @@ class ClientThread(threading.Thread):
 						else:
 							# group is not already present for this seeder
 							# create a group with a ip of class D and port
-							groupIP = '244.23.23.23'
+							groupIP = '123.45.45.65'
 							groupPort = 4343
 							groupAddr = groupIP + ":" + str(groupPort) 
-							seederIP, seederPort = seederAddr.split(':')
-							seederPort = int(seederPort)
-							group = Group(groupIP, groupPort, (seederIP, seederPort), trackerAddr)
+							
+							group = Group(groupIP, groupPort, (seederIP, seederPort), (self.tracker.ip, self.tracker.port))
 
 							# update the dictionary of seeders
 							self.tracker.groups[seederAddr].append(groupAddr)
@@ -100,14 +108,13 @@ class ClientThread(threading.Thread):
 
 				else:
 					# there is not group of this seeder to send
-					groupIP = '244.23.23.23'
+					groupIP = '123.45.45.65'
 					groupPort = 4343
 					groupAddr = groupIP + ":" + str(groupPort) 
-					group = Group(groupIP, groupPort, seederAddr, trackerAddr)
+					group = Group(groupIP, groupPort, (seederIP, seederPort), (self.tracker.ip, self.tracker.port))
 					self.tracker.groups[seederAddr] = [groupAddr, timeToChat]
 				
 				# send this group to leecher
-				trackerAddr = self.tracker.ip + ":" +str(self.tracker.port)
 				self.socket.send(groupAddr) 
 
 			else:
@@ -116,8 +123,21 @@ class ClientThread(threading.Thread):
 		elif resp == "Group":
 			self.socket.send("Ok")
 			# get seederAddr, groupAddr
-			fileName = self.socket.recv(1024)
-				
+			seederAddr, groupAddr = self.socket.recv(1024).split('||')
+			if seederAddr in self.tracker.groups:
+				itemLength = len(self.tracker.groups[seederAddr])
+				for i in range(itemLength):
+					val = self.tracker.groups[seederAddr][i]
+					if val == groupAddr:
+						# remove the group from seeders list
+						self.tracker.groups[seederAddr].pop(i)
+						self.tracker.groups[seederAddr].pop(i+1)
+
+						# remove seeder if no more groups are active to this seeder
+						if len(self.tracker.groups[seederAddr]) == 0:
+							self.tracker.groups.pop(seederAdd)
+
+						break
 		
 		else:
 			self.socket.send("Who are you ?")
@@ -140,17 +160,16 @@ class Tracker():
 	# start the tracker server	
 	def Start(self):
 		# create a tcp thread
-		s = Socket(self.ip, self.port).TCP()
+		self.socket = Socket(self.ip, self.port).TCP()
+		self.socket.bind((self.ip, self.port))
 
 		# now listen for any incomming connection
-		self.socket = s
+		print "Tracker listening at  "+ self.ip + ":"+str(self.port)
 		self.socket.listen(5)
 
-		print "Tracker listening at  "+ self.ip + ":"+str(self.port)
-
 		while True:
-			clientSocket, (ip, port, key, scope_id) = self.socket.accept()
-			print "Client from "+ str(ip) + ":" + str(port)
+			clientSocket, (ip, port) = self.socket.accept()
+			print "Responding to ", ip, port
 			clientThread = ClientThread(self, clientSocket, ip, port)
 			clientThread.start()
 
