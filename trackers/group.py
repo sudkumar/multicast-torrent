@@ -53,8 +53,6 @@ class Group():
 	'''
 	def receive(self):
 		# Loop, printing any data we receive
-		# self.socket.listen(5)
-		# (reqSocket, (ip, port, key, scope_id)) =  self.socket.accept()
 		while True:
 			print "waiting to receive..."
 			data, sender = self.socket.recvfrom(1500)

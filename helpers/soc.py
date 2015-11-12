@@ -9,7 +9,7 @@ Basic socket implementation
 
 
 
-class Soc():
+class Socket():
 	"""Basic Socket operations"""
 	def __init__(self, ip, port=None):
 		self.ip = ip

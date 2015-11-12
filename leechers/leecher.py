@@ -2,6 +2,18 @@
 
 import socket
 
+
+if __package__ is None:
+  import sys
+  from os import path
+  sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+  from helpers.soc import Socket
+
+else:
+  from ..helpers.soc import Socket
+
+
+
 """
 Leechers
 
@@ -14,57 +26,147 @@ Leechers
 class Leecher():
 	"""Leecher to download the file"""
 	def __init__(self, ip, port):
-		addrinfo = socket.getaddrinfo(ip, None)[0]
-
-		s = socket.socket(addrinfo[0], socket.SOCK_DGRAM)
-
-		# Allow multiple copies of this program on one machine
-		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-		self.socket = s
 		self.ip = ip
 		self.port = port
-		self.socket.bind(ip,port)
 
 	"""
 	Download torrent file
 	"""
-	def GetTorrent(self, serverAddress):
-		# to download a file, we want a TCP connection
-		# create a TCP socket and connect to server address
-		# do some message passing and then get file from server
+	def GetTorrent(self, serverAddress, fileName):
+		'''
+		Create a TCP socket
+		Connect the server
+		Get the torrent file from server
+		'''
+		# Create a TCP socket
+		s = Socket(self.ip, self.port).TCP()
+
+		# connect to server
+		print "Connecting to ", serverAddress
+		# s.settimeout(5)   # 5 seconds
+		try:
+		    s.connect(serverAddress)         # "random" IP address and port
+		except socket.error, exc:
+		    print "Caught exception socket.error : %s" % exc
+		else:
+			# get torrent file from server after some message passing
+			resp = s.recv(256)
+			if resp == "Ok":
+				s.send("Download")
+				resp = s.recv(256)
+				if resp == "Ok":
+					s.send(fileName)
+					resp = s.recv(256)
+					if resp == "Ok":
+						file = s.recv(1024)
+						fp = open(fileName+".torrent", "w")
+						fb.write(fp)
+						fp.close()
+					else:
+						print "File not exists at server"	
+
+			else:
+				print "Server not respoinding..."
+		# close the socket
+		s.close()			
+	
 
 	"""
 	Talk to Trackers and get the group 
 	"""
-	def GetGroup(self):
-			
+	def GetGroup(self, trackerAddr, fileName):
+		'''
+		Get tracker's ip and port
+		Create a TCP socket and get group after doing some message passing
+		'''					
+		# create a tcp socket
+		s = Socket(self.ip, self.port).TCP()
+
+		s.bind((self.ip, self.port))
+		
+		# connect socket to tracker
+		s.connect(trackerAddr)
+
+		# get group from tracker after doing some message passing
+		resp = s.recv(256)
+		if resp == "Ok":
+			s.send("Leecher")
+			resp = s.recv(256)
+			if resp == "Ok":
+				s.send(fileName)
+				resp = s.recv()
+				if resp == "Ok":
+					resp = s.recv(1024)
+					if resp == "Failed":
+						print "Unable to assign a group.."
+						groupAddr =  None
+					# we got the group addr	
+					groupAddr = resp
+				else:
+					print "File not exists at server"
+					groupAddr = None
+		else:
+			print "Tracker is not respoinding..."
+			groupAddr =  None		
+		
+		s.close()
+
+		return groupAddr
 
 	"""
 	Join the group
 	"""
-	def JoinGroup(self, group):
-		
+	def JoinGroup(self, groupIP, groupAddr):
+		'''
+		Create a UDP socket
+		Join the group
+		'''
+
+		s = Socket(self.ip, self.port).UDP()
+
+		# Allow multiple copies of this program on one machine
+		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+
 		# Bind it to the port
-		self.socket.bind((group.ip, group.port))
+		s.socket.bind((groupIP, groupAddr))
 
 		# get the group to join
-		group_bin = socket.inet_pton(group.socket.family, group.ip)
+		group_bin = socket.inet_pton(socket.AF_INET, groupIP)
 
 		# Join group
 		mreq = group_bin + struct.pack('=I', socket.INADDR_ANY)
-		self.socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+		s.socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+	
+		return s
 
 
 	"""
 	Download a file
 	"""
-	def Download(self):
-		# Loop, printing any data we receive
-		while True:
-			print "waiting to receive..."
-			data, sender = self.socket.recvfrom(1500)
-			while data[-1:] == '\0': data = data[:-1] # Strip trailing \0's
-			print ("From "+ str(sender) + ' received ' + repr(data))
-			print "Sending ack to: ", sender
-			s.sendto('ack', sender)
+	def Download(self, torrentFile):
+		# get the trackers from torrent file
+		decodedData = Torrent(torrentFile).decode()
+
+		# get the tracker from dictionary
+		tracker = decodedData["announce"].split(':')
+		
+		fileName = decodedData["info"]["name"]
+		
+		# get the group to join
+		trackerAddr = ( tracker[0], int(tracker[1]) )
+
+		groupAddr = self.GetGroup((trackerAddr, fileName))
+		if groupAddr:	
+			groupIP, groupPort = groupAddr.split(':')
+
+			# join the group and get the socket
+			s = self.JoinGroup(groupIP, groupPort)
+
+			# Loop, printing any data we receive
+			while True:
+				print "waiting to receive..."
+				data, sender = s.recvfrom(1500)
+				print ("From "+ str(sender) + ' received ' + repr(data))
+				print "Sending ack to: ", sender
+				s.sendto('ack', sender)

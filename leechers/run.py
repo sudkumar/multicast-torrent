@@ -6,13 +6,11 @@ from leecher import *
 
 def main():
 	
-	print "Do something here"
-
 	# Create the leecher's instance
-	leecher = Leecher('124.0.0.2', 3555)
+	leecher = Leecher('127.100.11.11', 3555)
 
 	# Download a torrent file form a server
-	serverAddr = ('125.0.0.3', 1234)
+	serverAddr = ('127.23.23.23', 6660)
 	leecher.GetTorrent(serverAddr, "test.txt")
 
 
