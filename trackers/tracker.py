@@ -90,7 +90,9 @@ class ClientThread(threading.Thread):
 							groupIP = '244.23.23.23'
 							groupPort = 4343
 							groupAddr = groupIP + ":" + str(groupPort) 
-							group = Group(groupIP, groupPort, seederAddr, trackerAddr)
+							seederIP, seederPort = seederAddr.split(':')
+							seederPort = int(seederPort)
+							group = Group(groupIP, groupPort, (seederIP, seederPort), trackerAddr)
 
 							# update the dictionary of seeders
 							self.tracker.groups[seederAddr].append(groupAddr)
@@ -128,7 +130,7 @@ class Tracker():
 		self.ip = ip
 		self.port = port
 		if dbName:
-			self.db = DB(dbName)
+			self.db = DB(dbName).db
 		else:
 			self.db = None
 

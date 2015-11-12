@@ -35,6 +35,7 @@ class ClientThread(threading.Thread):
 	## implement the run functionality of thread 
 	def run(self):
 		# get data from client socket
+		self.socket.send("Ok")
 		data = self.socket.recv(1024)
 		if data == "Download" :
 			self.socket.send("Ok")
@@ -108,10 +109,10 @@ class ClientThread(threading.Thread):
 	"""		
 	def Download(self, fileName):
 		# look in our data base for fileName, 
-		file = self.server.db.find({"fileName": fileName})
+		file = self.server.db.torrents.find({"fileName": fileName})
 
 		# send file if exists
-		if file:
+		if file.count() == 1:
 			torrentFile = open(fileName, "rb")
 			self.socket.send(torrentFile)	
 
@@ -125,7 +126,7 @@ class Server():
 		self.socket = None
 		self.ip = ip
 		self.port = port
-		self.db = DB(dbName)
+		self.db = DB(dbName).db
 
 	"""
 	Start the server
